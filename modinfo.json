@@ -17,7 +17,7 @@
       "types": ["Utility"],
       "latest": "0.1.0",
       "versions": {
-        "0.1.0": ""
+        "0.1.0": "https://github.com/NoneGiven/bl-sdk-mods/raw/main/CollisionVisualizer/CollisionVisualizer.zip"
       },
       "requirements": {}
     }
