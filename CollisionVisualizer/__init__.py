@@ -11,20 +11,18 @@ class CollisionVisualizer(ModMenu.SDKMod):
     Types = ModMenu.ModTypes.Utility
 
     Keybinds = [
-        ModMenu.Keybind("Cycle Viz", "F2"),
-        ModMenu.Keybind("Turret Tele", "F3"),
-        ModMenu.Keybind("Volume Tele", "F4"),
-        ModMenu.Keybind("Toggle Fake", "F5"),
-        ModMenu.Keybind("Log Stuff", "F6"),
+        ModMenu.Keybind("Toggle Kill Volumes", "F2"),
+        ModMenu.Keybind("Toggle Collision Volumes", "F3"),
+        ModMenu.Keybind("Toggle Fake Meshes", "F5"),
     ]
 
     def showMessage(self, message, title = "Collision Visualizer"):
-        PC = GetEngine().GamePlayers[0].Actor
-        HUDMovie = PC.myHUD.HUDMovie
+        pc = GetEngine().GamePlayers[0].Actor
+        movie = pc.myHUD.HUDMovie
         try:
-            if PC is None or HUDMovie is None:
+            if pc is None or movie is None:
                 return True
-            HUDMovie.AddTrainingText(message, title, 3, (), "", False, 0, PC.PlayerReplicationInfo, True, 0, 0)
+            movie.AddTrainingText(message, title, 3, (), "", False, 0, pc.PlayerReplicationInfo, True, 0, 0)
         except:
             return True
         return True
@@ -32,8 +30,10 @@ class CollisionVisualizer(ModMenu.SDKMod):
     def log(self, message):
         Log(message)
 
-    entityData = {}
-    nextColor = 0
+    killData = {}
+    collisionData = {}
+    nextColors = [0, 0]
+    colorSlot = 0
 
     colors = [
         (255, 0, 0),   # red
@@ -44,19 +44,19 @@ class CollisionVisualizer(ModMenu.SDKMod):
         (255, 255, 0)  # yellow
     ]
 
-    def startDrawingVolumes(self, classNames, names):
+    def startDrawingVolumes(self, classNames, names, master):
         if not isinstance(classNames, list):
             classNames = [classNames]
         if not isinstance(names, list):
             names = [names]
         msg = ""
-        PC = GetEngine().GamePlayers[0].Actor
-        if PC is None:
+        pc = GetEngine().GamePlayers[0].Actor
+        if pc is None:
             self.showMessage("No player")
             return
         for className, name in zip(classNames, names):
-            if className in self.entityData:
-                collection = self.entityData[className]
+            if className in master:
+                collection = master[className]
                 count = 0
                 for key in collection:
                     count += 1
@@ -66,9 +66,9 @@ class CollisionVisualizer(ModMenu.SDKMod):
                     color = info["color"]
                     i = 0
                     while i < len(tris):
-                        PC.DrawDebugLine(verts[tris[i + 0]], verts[tris[i + 1]], color[0], color[1], color[2], True, 86400)
-                        PC.DrawDebugLine(verts[tris[i + 1]], verts[tris[i + 2]], color[0], color[1], color[2], True, 86400)
-                        PC.DrawDebugLine(verts[tris[i + 2]], verts[tris[i + 0]], color[0], color[1], color[2], True, 86400)
+                        pc.DrawDebugLine(verts[tris[i + 0]], verts[tris[i + 1]], color[0], color[1], color[2], True, 86400)
+                        pc.DrawDebugLine(verts[tris[i + 1]], verts[tris[i + 2]], color[0], color[1], color[2], True, 86400)
+                        pc.DrawDebugLine(verts[tris[i + 2]], verts[tris[i + 0]], color[0], color[1], color[2], True, 86400)
                         i += 3
                 if msg != "":
                     msg += "\n"
@@ -77,35 +77,35 @@ class CollisionVisualizer(ModMenu.SDKMod):
             self.showMessage(msg)
 
     def resetAll(self):
-        self.vizState = 0
-        self.turretIndex = -1
-        self.volumeIndex = -1
+        self.showKill = False
+        self.showCollision = False
         self.clearAllVolumes()
-        self.nextColor = 0
+        self.nextColors = [0, 0]
 
     def clearAllVolumes(self):
-        self.entityData = {}
-        PC = GetEngine().GamePlayers[0].Actor
-        if PC is not None:
-            PC.FlushPersistentDebugLines()
+        self.killData = {}
+        self.collisionData = {}
+        pc = GetEngine().GamePlayers[0].Actor
+        if pc is not None:
+            pc.FlushPersistentDebugLines()
         self.hideFake = False
         self.hiddenComponents = []
 
     def stopDrawingVolumes(self):
-        PC = GetEngine().GamePlayers[0].Actor
-        if PC is not None:
-            PC.FlushPersistentDebugLines()
+        pc = GetEngine().GamePlayers[0].Actor
+        if pc is not None:
+            pc.FlushPersistentDebugLines()
         self.showMessage("Stopped drawing")
 
-    def updateVolumes(self, classNames):
+    def updateVolumes(self, classNames, master):
         if not isinstance(classNames, list):
             classNames = [classNames]
         for className in classNames:
-            if className in self.entityData:
-                collection = self.entityData[className]
+            if className in master:
+                collection = master[className]
             else:
                 collection = {}
-                self.entityData[className] = collection
+                master[className] = collection
             allVolumes = FindAll(className)
             allVolumes = [v for v in allVolumes if "PersistentLevel" in v.GetFullName()]
             allVolumes = [v for v in allVolumes if "Loader.TheWorld" not in v.GetFullName()]
@@ -134,7 +134,7 @@ class CollisionVisualizer(ModMenu.SDKMod):
         v3 = (v3[0] + turret.Location.X, v3[1] + turret.Location.Y, v3[2] + turret.Location.Z)
         vertices = [v0, v1, v2, v3]
         tris = [0, 1, 2, 2, 3, 0]
-        self.addEntity(turret, vertices, tris, collection, False, 3)
+        self.addEntity(turret, vertices, tris, collection, 3)
 
     def addNewVolume(self, volume, collection):
         self.warnIfComplicated(volume)
@@ -149,7 +149,7 @@ class CollisionVisualizer(ModMenu.SDKMod):
             break
         return True
 
-    def addEntity(self, volume, vertices, tris, collection, colorWhite = False, subdivisions = 2):
+    def addEntity(self, volume, vertices, tris, collection, subdivisions = 2):
         vertMap = {}
         for _ in range(subdivisions):
             i = 0
@@ -166,14 +166,14 @@ class CollisionVisualizer(ModMenu.SDKMod):
                     i += len(newTris)
                 else:
                     i += 3
+        colorIndex = self.nextColors[self.colorSlot]
         color = (255, 255, 255)
-        if not colorWhite:
-            color = self.colors[self.nextColor]
+        color = self.colors[colorIndex]
         collection[volume] = { "verts": vertices, "tris": tris, "color": color }
-        if not colorWhite:
-            self.nextColor += 1
-            if self.nextColor >= len(self.colors):
-                self.nextColor = 0
+        colorIndex += 1
+        if colorIndex >= len(self.colors):
+            colorIndex = 0
+        self.nextColors[self.colorSlot] = colorIndex
 
     def addBlockingMeshCollection(self, volume, collection):
         addedAny = False
@@ -362,8 +362,31 @@ class CollisionVisualizer(ModMenu.SDKMod):
         if length > 1:
             self.log(f"volume has ConvexElems = {length}")
 
+    showKill = False
+    showCollision = False
     hideFake = False
     hiddenComponents = []
+
+    def toggleKill(self):
+        if self.showKill:
+            self.stopDrawingVolumes()
+            self.showCollision = False
+        else:
+            self.colorSlot = 0
+            self.updateVolumes(["PlayerKillVolume", "WillowBoundaryTurret"], self.killData)
+            self.startDrawingVolumes(["PlayerKillVolume", "WillowBoundaryTurret"], ["Kill volumes", "Turrets"], self.killData)
+        self.showKill = not self.showKill
+
+    def toggleCollision(self):
+        if self.showCollision:
+            self.stopDrawingVolumes()
+            self.showKill = False
+        else:
+            self.colorSlot = 1
+            self.updateVolumes(["BlockingMeshCollectionActor", "BlockingMeshActor", "BlockingVolume"], self.collisionData)
+            self.startDrawingVolumes(["BlockingMeshCollectionActor", "BlockingMeshActor", "BlockingVolume"],
+                ["Collection blocking meshes", "Blocking mesh actors", "Blocking volumes"], self.collisionData)
+        self.showCollision = not self.showCollision
 
     def toggleFake(self):
         self.hideFake = not self.hideFake
@@ -403,15 +426,6 @@ class CollisionVisualizer(ModMenu.SDKMod):
                     return False
         return True
 
-    def logOtherStuff(self, className):
-        stuff = FindAll(className)
-        stuff = [s for s in stuff if "PersistentLevel" in s.GetFullName()]
-        self.log(f"{className}: {self.iterLen(stuff)}")
-
-    vizState = 0
-    turretIndex = -1
-    volumeIndex = -1
-
     def GameInputPressed(self, input):
         # todo: flags/wires/etc. are not being hidden
         # todo: investigate other actors (e.g. death wall, spike pit)
@@ -419,75 +433,12 @@ class CollisionVisualizer(ModMenu.SDKMod):
         # py p = unrealsdk.GetEngine().GamePlayers[0].Actor.Pawn
         # py p.Location = (v.Location.X, v.Location.Y, v.Location.Z)
         # py p.Location = (v._LocalToWorld.WPlane.X, v._LocalToWorld.WPlane.Y, v._LocalToWorld.WPlane.Z)
-        if input.Name == "Cycle Viz":
-            self.vizState += 1
-            if self.vizState == 1:
-                self.updateVolumes(["PlayerKillVolume", "WillowBoundaryTurret"])
-                self.startDrawingVolumes(["PlayerKillVolume", "WillowBoundaryTurret"], ["Kill volumes", "Turrets"])
-            elif self.vizState == 2:
-                self.stopDrawingVolumes()
-                self.updateVolumes(["BlockingMeshCollectionActor", "BlockingMeshActor", "BlockingVolume"])
-                self.startDrawingVolumes(["BlockingMeshCollectionActor", "BlockingMeshActor", "BlockingVolume"],
-                    ["Collection blocking meshes", "Blocking mesh actors", "Blocking volumes"])
-            else:
-                self.vizState = 0
-                self.stopDrawingVolumes()
-        elif input.Name == "Toggle Fake":
+        if input.Name == "Toggle Kill Volumes":
+            self.toggleKill()
+        elif input.Name == "Toggle Collision Volumes":
+            self.toggleCollision()
+        elif input.Name == "Toggle Fake Meshes":
             self.toggleFake()
-        elif input.Name == "Log Stuff":
-            self.logOtherStuff("WillowDynamicPathBlockingVolume")
-            self.logOtherStuff("FlyerBlockingVolume")
-            self.logOtherStuff("VehicleBlockingVolume")
-            self.logOtherStuff("PlayerBlockingVolume")
-            self.logOtherStuff("ExecuteBlockingVolume")
-            self.logOtherStuff("BlockingMeshActor")
-            self.logOtherStuff("BlockingMeshCollectionActor")
-            self.logOtherStuff("BlockingMeshComponent")
-            self.logOtherStuff("BlockingMeshReplicatedActor")
-            self.logOtherStuff("SimpleVolume")
-            self.logOtherStuff("Terrain")
-        elif input.Name == "Turret Tele":
-            PC = GetEngine().GamePlayers[0].Actor
-            if PC is not None:
-                turrets = FindAll("WillowBoundaryTurret")
-                turrets = [t for t in turrets if "PersistentLevel" in t.GetFullName()]
-                count = len(turrets)
-                if count > 0:
-                    self.turretIndex += 1
-                    if self.turretIndex >= count:
-                        self.turretIndex = 0
-                    turret = turrets[self.turretIndex]
-                    PC.Pawn.Location = (turret.Location.X, turret.Location.Y, turret.Location.Z + 2200)
-                    turretType = "insta-kill" if turret.bInstaKill else "ragdoll"
-                    self.showMessage(f"Turret index {self.turretIndex} of {count - 1} ({turretType})")
-                    return
-                self.showMessage(f"No turrets")
-        elif input.Name == "Volume Tele":
-            PC = GetEngine().GamePlayers[0].Actor
-            if PC is not None:
-                volumes = FindAll("PlayerKillVolume")
-                volumes = [v for v in volumes if "PersistentLevel" in v.GetFullName()
-                    and self.iterLen(v.CollisionComponent.BrushAggGeom.ConvexElems) > 0
-                    and self.iterLen(v.CollisionComponent.BrushAggGeom.ConvexElems[0].VertexData) > 0]
-                count = len(volumes)
-                if count > 0:
-                    self.volumeIndex += 1
-                    if self.volumeIndex>= count:
-                        self.volumeIndex = 0
-                    volume = volumes[self.volumeIndex]
-                    vert = volume.CollisionComponent.BrushAggGeom.ConvexElems[0].VertexData[0]
-                    PC.Pawn.Location = (volume.Location.X + vert.X, volume.Location.Y + vert.Y, volume.Location.Z + vert.Z)
-                    className = volume.GetFullName()
-                    volumeType = ""
-                    if not "_P." in className:
-                        volumeType = className
-                        if " " in className:
-                            volumeType = volumeType.split(" ")[1]
-                        volumeType = volumeType.split(".")[0]
-                        volumeType = f" ({volumeType})"
-                    self.showMessage(f"Volume index {self.volumeIndex} of {count - 1}{volumeType}")
-                    return
-                self.showMessage(f"No volumes")
 
     SaveEnabledState = ModMenu.EnabledSaveType.LoadOnMainMenu
 
