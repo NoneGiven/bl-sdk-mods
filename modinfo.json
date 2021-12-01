@@ -1,0 +1,25 @@
+{
+  "defaults": {
+    "authors": "None",
+    "source": "https://github.com/NoneGiven/bl-sdk-mods",
+    "supports": ["BL2", "TPS", "AoDK"],
+    "license": "MIT"
+  },
+  "mods": [
+    {
+      "name": "Collision Visualizer",
+      "description": [
+        "Visualizes invisible blocking/killing collision volumes and allows hiding meshes with no collision."
+      ],
+      "tagline": [
+        "Visualizes invisible blocking/killing collision volumes and allows hiding meshes with no collision."
+      ],
+      "types": ["Utility"],
+      "latest": "0.1.0",
+      "versions": {
+        "0.1.0": ""
+      },
+      "requirements": {}
+    }
+  ]
+}
