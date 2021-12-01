@@ -110,17 +110,35 @@ class CollisionVisualizer(ModMenu.SDKMod):
             allVolumes = [v for v in allVolumes if "PersistentLevel" in v.GetFullName()]
             allVolumes = [v for v in allVolumes if "Loader.TheWorld" not in v.GetFullName()]
             for volume in allVolumes:
-                if not volume in collection or className == "BlockingMeshCollectionActor":
+                if className in ["BlockingMeshCollectionActor", "SeqEvent_Touch"] or not volume in collection:
                     if className == "BlockingMeshActor":
                         result = self.addBlockingMeshComponent(volume.CollisionComponent, collection, volume)
                     elif className == "BlockingMeshCollectionActor":
                         result = self.addBlockingMeshCollection(volume, collection)
                     elif className == "WillowBoundaryTurret":
                         result = self.addBoundaryTurret(volume, collection)
+                    elif className == "SeqEvent_Touch":
+                        result = self.addTouchVolume(volume, collection)
+                    elif className == "BehaviorVolume":
+                        result = self.addBehaviorVolume(volume, collection)
                     else:
                         result = self.addNewVolume(volume, collection)
                     if result:
                         self.log(f"added: {volume}")
+
+    def addBehaviorVolume(self, volume, collection):
+        if volume.Definition is not None and "BehaviorVolume_KillPawn" in volume.Definition.GetFullName():
+            return self.addNewVolume(volume, collection)
+        return False
+
+    def addTouchVolume(self, seqEvent, collection):
+        volume = seqEvent.Originator
+        if volume is not None and "TriggerVolume" in volume.GetFullName() and not volume in collection:
+            for output in seqEvent.OutputLinks:
+                for link in output.Links:
+                    if "SeqAct_CausePlayerDeath" in link.LinkedOp.GetFullName():
+                        return self.addNewVolume(volume, collection)
+        return False
 
     def addBoundaryTurret(self, turret, collection):
         height = 10000
@@ -373,8 +391,9 @@ class CollisionVisualizer(ModMenu.SDKMod):
             self.showCollision = False
         else:
             self.colorSlot = 0
-            self.updateVolumes(["PlayerKillVolume", "WillowBoundaryTurret"], self.killData)
-            self.startDrawingVolumes(["PlayerKillVolume", "WillowBoundaryTurret"], ["Kill volumes", "Turrets"], self.killData)
+            self.updateVolumes(["PlayerKillVolume", "SeqEvent_Touch", "BehaviorVolume", "WillowBoundaryTurret"], self.killData)
+            self.startDrawingVolumes(["PlayerKillVolume", "SeqEvent_Touch", "BehaviorVolume", "WillowBoundaryTurret"],
+                ["Kill volumes", "Trigger volumes", "Behavior volumes", "Turrets"], self.killData)
         self.showKill = not self.showKill
 
     def toggleCollision(self):
@@ -428,7 +447,6 @@ class CollisionVisualizer(ModMenu.SDKMod):
 
     def GameInputPressed(self, input):
         # todo: flags/wires/etc. are not being hidden
-        # todo: investigate other actors (e.g. death wall, spike pit)
         # todo: investigate misleading static mesh collision (e.g. SnowDriftSingle in Windshear Waste, top of Flynt's ship)
         # py p = unrealsdk.GetEngine().GamePlayers[0].Actor.Pawn
         # py p.Location = (v.Location.X, v.Location.Y, v.Location.Z)
@@ -440,6 +458,44 @@ class CollisionVisualizer(ModMenu.SDKMod):
         elif input.Name == "Toggle Fake Meshes":
             self.toggleFake()
 
+    #@ModMenu.Hook("WillowGame.WillowDamagePipeline.KillPlayer")
+    #def PipelineKill(self, caller: UObject, function: UFunction, params: FStruct) -> bool:
+    #    self.LogHook("WillowGame.WillowDamagePipeline.KillPlayer", caller, params)
+    #    return True
+
+    #@ModMenu.Hook("WillowGame.WillowPawn.CausePlayerDeath")
+    #def PawnCause(self, caller: UObject, function: UFunction, params: FStruct) -> bool:
+    #    self.LogHook("WillowGame.WillowPawn.CausePlayerDeath", caller, params)
+    #    return True
+
+    #@ModMenu.Hook("WillowGame.WillowPlayerPawn.Behavior_Killed")
+    #def PlayerKilled(self, caller: UObject, function: UFunction, params: FStruct) -> bool:
+    #    self.LogHook("WillowGame.WillowPlayerPawn.Behavior_Killed", caller, params)
+    #    return True
+
+    #@ModMenu.Hook("WillowGame.WillowPlayerController.CausePlayerDeath")
+    #def ControllerCause(self, caller: UObject, function: UFunction, params: FStruct) -> bool:
+    #    self.LogHook("WillowGame.WillowPlayerController.CausePlayerDeath", caller, params)
+    #    return True
+
+    #@ModMenu.Hook("WillowGame.WillowPlayerController.OnCausePlayerDeath")
+    #def ControllerSeq(self, caller: UObject, function: UFunction, params: FStruct) -> bool:
+    #    self.LogHook("WillowGame.WillowPlayerController.OnCausePlayerDeath", caller, params)
+    #    return True
+
+    #@ModMenu.Hook("Engine.SequenceOp.Activated")
+    #def SeqActivate(self, caller: UObject, function: UFunction, params: FStruct) -> bool:
+    #    self.LogHook("Engine.SequenceOp.Activated", caller, params)
+    #    return True
+
+    #@ModMenu.Hook("Engine.SequenceOp.Deactivated")
+    #def SeqDeactivate(self, caller: UObject, function: UFunction, params: FStruct) -> bool:
+    #    self.LogHook("Engine.SequenceOp.Deactivated", caller, params)
+    #    return True
+
+    def LogHook(self, name, caller, params):
+        self.log(f"\n{name}\ncaller: {caller}\nparams: {params}\n\n")
+
     SaveEnabledState = ModMenu.EnabledSaveType.LoadOnMainMenu
 
     def Enable(self):
@@ -447,12 +503,14 @@ class CollisionVisualizer(ModMenu.SDKMod):
             _ = (caller, function, params)
             self.resetAll()
             return True
+        super().Enable()
         RunHook("WillowGame.WillowPlayerController.WillowClientDisableLoadingMovie", "LoadHook", VolumeResetHook)
         self.resetAll()
     
     def Disable(self):
         RemoveHook("WillowGame.WillowPlayerController.WillowClientDisableLoadingMovie", "LoadHook")
         self.resetAll()
+        super().Disable()
 
 instance = CollisionVisualizer()
 
