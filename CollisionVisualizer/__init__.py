@@ -386,26 +386,26 @@ class CollisionVisualizer(ModMenu.SDKMod):
     hiddenComponents = []
 
     def toggleKill(self):
+        self.showKill = not self.showKill
         if self.showKill:
-            self.stopDrawingVolumes()
-            self.showCollision = False
-        else:
             self.colorSlot = 0
             self.updateVolumes(["PlayerKillVolume", "SeqEvent_Touch", "BehaviorVolume", "WillowBoundaryTurret"], self.killData)
             self.startDrawingVolumes(["PlayerKillVolume", "SeqEvent_Touch", "BehaviorVolume", "WillowBoundaryTurret"],
                 ["Kill volumes", "Trigger volumes", "Behavior volumes", "Turrets"], self.killData)
-        self.showKill = not self.showKill
+        else:
+            self.stopDrawingVolumes()
+            self.showCollision = False
 
     def toggleCollision(self):
+        self.showCollision = not self.showCollision
         if self.showCollision:
-            self.stopDrawingVolumes()
-            self.showKill = False
-        else:
             self.colorSlot = 1
             self.updateVolumes(["BlockingMeshCollectionActor", "BlockingMeshActor", "BlockingVolume"], self.collisionData)
             self.startDrawingVolumes(["BlockingMeshCollectionActor", "BlockingMeshActor", "BlockingVolume"],
                 ["Collection blocking meshes", "Blocking mesh actors", "Blocking volumes"], self.collisionData)
-        self.showCollision = not self.showCollision
+        else:
+            self.stopDrawingVolumes()
+            self.showKill = False
 
     def toggleFake(self):
         self.hideFake = not self.hideFake
@@ -446,7 +446,7 @@ class CollisionVisualizer(ModMenu.SDKMod):
         return True
 
     def GameInputPressed(self, input):
-        # todo: flags/wires/etc. are not being hidden
+        # todo: flags/wires/animated effect planes/etc. are not being hidden
         # todo: investigate misleading static mesh collision (e.g. SnowDriftSingle in Windshear Waste, top of Flynt's ship)
         # py p = unrealsdk.GetEngine().GamePlayers[0].Actor.Pawn
         # py p.Location = (v.Location.X, v.Location.Y, v.Location.Z)
