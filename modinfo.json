@@ -9,7 +9,10 @@
     {
       "name": "Collision Visualizer",
       "description": [
-        "Visualizes invisible blocking/killing collision volumes and allows hiding meshes with no collision."
+        "Visualizes invisible blocking/killing collision volumes and allows hiding meshes with no collision.\n\n",
+        "Be aware that the game may hang for several seconds when enabling visualization in a map with many invisible volumes. ",
+        "Additionally, while kill volumes and blocking volumes can be toggled on independently, both of them will always ",
+        "be toggled off together."
       ],
       "tagline": [
         "Visualizes invisible blocking/killing collision volumes and allows hiding meshes with no collision."

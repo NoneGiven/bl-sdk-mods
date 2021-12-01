@@ -108,7 +108,7 @@ class CollisionVisualizer(ModMenu.SDKMod):
                 master[className] = collection
             allVolumes = FindAll(className)
             allVolumes = [v for v in allVolumes if "PersistentLevel" in v.GetFullName()]
-            allVolumes = [v for v in allVolumes if "Loader.TheWorld" not in v.GetFullName()]
+            #allVolumes = [v for v in allVolumes if "Loader.TheWorld" not in v.GetFullName()]
             for volume in allVolumes:
                 if className in ["BlockingMeshCollectionActor", "SeqEvent_Touch"] or not volume in collection:
                     if className == "BlockingMeshActor":
@@ -185,7 +185,6 @@ class CollisionVisualizer(ModMenu.SDKMod):
                 else:
                     i += 3
         colorIndex = self.nextColors[self.colorSlot]
-        color = (255, 255, 255)
         color = self.colors[colorIndex]
         collection[volume] = { "verts": vertices, "tris": tris, "color": color }
         colorIndex += 1
@@ -217,8 +216,8 @@ class CollisionVisualizer(ModMenu.SDKMod):
         if self.iterLen(geom.SphereElems) > 0:
             self.log(f"Could not add BlockingMeshActor with SphereElems")
             return False
-        if self.iterLen(geom.SphereElems) > 0:
-            self.log(f"Could not add BlockingMeshActor with SphereElems")
+        if self.iterLen(geom.SphylElems) > 0:
+            self.log(f"Could not add BlockingMeshActor with SphylElems")
             return False
         if self.iterLen(geom.BoxElems) + self.iterLen(geom.ConvexElems) > 1:
             self.log(f"Could not add BlockingMeshActor with multiple BoxElems/ConvexElems")
